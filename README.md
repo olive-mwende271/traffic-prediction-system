@@ -1,0 +1,62 @@
+# 🚦 Traffic Prediction Analysis System
+
+**An end-to-end hybrid time series forecasting project** for predicting hourly traffic volume on the Metro Interstate (I-94) highway.
+
+This project combines **statistical modeling** (ARIMA & SARIMAX) with **deep learning** (Bidirectional LSTM) into a powerful **Hybrid SARIMAX-LSTM** model that significantly outperforms individual approaches by leveraging weather, temporal patterns, and holidays.
+
+---
+
+## 📌 Project Overview
+
+A complete traffic volume forecasting system featuring:
+- Comprehensive Exploratory Data Analysis (EDA)
+- Multiple time series models (ARIMA, SARIMAX, LSTM)
+- Advanced **Hybrid SARIMAX-LSTM** architecture (Best performing)
+- Interactive **Streamlit Web Application** (`app.py`)
+- 12+ publication-quality visualizations
+- Rigorous 5-Fold Time Series Cross-Validation
+
+---
+
+## ✨ Key Features
+
+- Full data exploration and visualization
+- Advanced feature engineering (cyclic time features, weather transformations, holiday/rush hour flags)
+- Stationarity testing, seasonal decomposition, ACF/PACF analysis
+- Four models compared: ARIMA, SARIMAX, Multivariate LSTM, and Hybrid SARIMAX-LSTM
+- Perturbation-based feature importance analysis
+- Interactive Streamlit dashboard for model demonstration
+
+---
+
+## 🏗️ Hybrid SARIMAX-LSTM Architecture (Best Model)
+
+**Three complementary information streams:**
+
+- **Branch A (Sequence)**: Bidirectional LSTM with 24-hour lookback on all multivariate features
+- **Branch B (SARIMAX)**: Statistical seasonal forecast injected as a learned feature
+- **Branch C (Context)**: Current weather, time-of-day, day-of-week, and holiday snapshot
+
+---
+
+## 📊 Results (5-Fold Time Series Cross-Validation)
+
+| Model                    | MAE     | RMSE     | MAPE     | Rank |
+|-------------------------|---------|----------|----------|------|
+| ARIMA (Baseline)        | 1012.1  | 1347.8   | 35.21%   | 4    |
+| SARIMAX                 | 812.3   | 1102.5   | 27.44%   | 3    |
+| Multivariate LSTM       | 623.7   | 874.2    | 19.83%   | 2    |
+| **Hybrid SARIMAX-LSTM** | **487.5** | **671.3** | **14.62%** | **1** |
+
+---
+
+## 🗂️ Project Structure
+
+```bash
+traffic-prediction-system/
+├── app.py                          # Streamlit Web App
+├── requirements.txt
+├── README.md
+├── notebooks/
+│   └── TRAFFIC_PREDICTION_ANALYSIS_SYSTEM.ipynb
+└── figures/                        # All generated plots
