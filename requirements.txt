@@ -4,6 +4,5 @@ matplotlib
 seaborn
 statsmodels
 scikit-learn
-tensorflow
 streamlit
-ipython
+plotly
