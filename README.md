@@ -39,24 +39,14 @@ A complete traffic volume forecasting system featuring:
 
 ---
 
-## 📊 Results (5-Fold Time Series Cross-Validation)
-
-| Model                    | MAE     | RMSE     | MAPE     | Rank |
-|-------------------------|---------|----------|----------|------|
-| ARIMA (Baseline)        | 1012.1  | 1347.8   | 35.21%   | 4    |
-| SARIMAX                 | 812.3   | 1102.5   | 27.44%   | 3    |
-| Multivariate LSTM       | 623.7   | 874.2    | 19.83%   | 2    |
-| **Hybrid SARIMAX-LSTM** | **487.5** | **671.3** | **14.62%** | **1** |
-
----
 
 ## 🗂️ Project Structure
 
 ```bash
 traffic-prediction-system/
-├── app.py                          # Streamlit Web App
+├── app.py                        
 ├── requirements.txt
 ├── README.md
 ├── notebooks/
 │   └── TRAFFIC_PREDICTION_ANALYSIS_SYSTEM.ipynb
-└── figures/                        # All generated plots
+└── figures/                      
