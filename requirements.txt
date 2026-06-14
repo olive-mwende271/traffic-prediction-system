@@ -1,10 +1,8 @@
-streamlit==1.35.0
-numpy==1.24.4
-pandas==2.0.3
-matplotlib
-seaborn
-statsmodels
+streamlit
+numpy
+pandas
 scikit-learn
-plotly
 joblib
-tensorflow==2.15.0
+plotly
+statsmodels
+tensorflow-cpu==2.15.0
