@@ -98,9 +98,9 @@ def hybrid_predict(hour, dow, month, temp_c, clouds_pct, rain_mm, snow_mm,
 
 
 def classify(vol):
-    if vol >= 5000:
+    if vol >= 3500:
         return "heavy",    "🔴 Heavy traffic",   "Significant delays expected",    "#D85A30"
-    elif vol >= 3000:
+    elif vol >= 2000:
         return "moderate", "🟡 Moderate traffic", "Some congestion likely",          "#BA7517"
     elif vol >= 1200:
         return "light",    "🟢 Light traffic",    "Mostly free-flowing roads",       "#639922"
