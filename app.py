@@ -126,13 +126,14 @@ MODEL_FILES = [
 def load_model_artifacts():
     """Load the saved Keras model and all scalers/metadata."""
     import joblib
+    os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"   # silence TF logs
     import tensorflow as tf
 
     missing = [f for f in MODEL_FILES if not os.path.exists(f)]
     if missing:
         return None, None, None, None, None, None, None, None, None, missing
 
-    model        = tf.keras.models.load_model('hybrid_model.keras')
+    model        = tf.keras.models.load_model('hybrid_model.keras', compile=False)
     scaler_mv    = joblib.load('scaler_mv.pkl')
     scaler_tv    = joblib.load('scaler_tv.pkl')
     scaler_ctx   = joblib.load('scaler_ctx.pkl')
