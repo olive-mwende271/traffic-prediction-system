@@ -37,63 +37,82 @@ st.markdown("""
 
 
 # ─── Hybrid Model Approximation ────────────────────────────────────────────────
+# ─── Hybrid Model Approximation (EDA-aligned) ─────────────────────────────────
 def hybrid_predict(hour, dow, month, temp_c, clouds_pct, rain_mm, snow_mm,
                    weather_type, is_holiday, is_weekend):
     """
-    Approximates the Hybrid SARIMAX-LSTM model's learned relationships:
-      Branch A  — BiLSTM temporal pattern (hour/dow/month cyclic features)
-      Branch B  — SARIMAX seasonal signal
-      Branch C  — Exogenous context (weather, calendar flags)
-
-    NOTE: To use your actual trained model weights, replace this function body with:
-        model = tf.keras.models.load_model('hybrid_model.keras')
-        X_seq, X_sar, X_ctx = prepare_inputs(...)   # your preprocessing pipeline
-        prediction = model.predict([X_seq, X_sar, X_ctx])
-        return int(scaler_tv.inverse_transform(prediction)[0][0])
+    Rebuilt to match EDA charts more faithfully:
+    - Strong hourly base from 'Avg Traffic by Hour'
+    - Additive DOW + Month effects (instead of aggressive multipliers)
+    - Strong categorical weather/holiday overrides
+    - Moderate precip/temp penalties
     """
-    # ── Branch A: temporal / sequential signal ──────────────────────────────
-    base = 3200.0
 
-    hour_sin = math.sin(2 * math.pi * hour / 24)
-    hour_cos = math.cos(2 * math.pi * hour / 24)
-    base += hour_sin * 1100 + hour_cos * (-200)
-
-    is_rush  = (7 <= hour <= 9) or (16 <= hour <= 18)
-    is_night = hour >= 23 or hour < 5
-    if is_rush:  base += 900
-    if is_night: base -= 2400
-
-    # ── Branch B: SARIMAX seasonal signal ──────────────────────────────────
-    dow_sin  = math.sin(2 * math.pi * dow / 7)
-    dow_cos  = math.cos(2 * math.pi * dow / 7)
-    base += dow_sin * (-250) + dow_cos * 80
-
-    month_sin = math.sin(2 * math.pi * month / 12)
-    month_cos = math.cos(2 * math.pi * month / 12)
-    base += month_sin * 300 + month_cos * (-100)
-
-    if is_weekend: base -= 1100
-    if is_holiday: base -= 1500
-
-    # ── Branch C: exogenous context ─────────────────────────────────────────
-    temp_sq = temp_c ** 2
-    base += temp_c * 18 - temp_sq * 0.5
-
-    rain_log = math.log1p(rain_mm)
-    snow_log = math.log1p(snow_mm)
-    base -= rain_log * 180
-    base -= snow_log * 350
-
-    clouds_norm = clouds_pct / 100.0
-    base -= clouds_norm * 300
-
-    weather_effect = {
-        "Clear": 200, "Clouds": 0, "Rain": -350,
-        "Snow": -700, "Mist": -200, "Thunderstorm": -600, "Drizzle": -250
+    # ── 1. Hourly Base (most important signal) ──
+    HOUR_AVG = {
+        0: 800, 1: 480, 2: 300, 3: 260, 4: 370,
+        5: 2050, 6: 4100, 7: 4650, 8: 4600, 9: 4350,
+        10: 4250, 11: 4300, 12: 4450, 13: 4550, 14: 4750,
+        15: 5500, 16: 5550, 17: 5250, 18: 4200, 19: 3250,
+        20: 2850, 21: 2700, 22: 2150, 23: 1450,
     }
-    base += weather_effect.get(weather_type, 0)
+    base = float(HOUR_AVG.get(int(hour), 3260))
 
-    vol = max(100, min(7280, int(round(base))))
+    # ── 2. Day-of-Week adjustment (additive, from DOW chart) ──
+    DOW_ADJ = [3300, 3500, 3560, 3590, 3600, 2790, 2380]  # Mon=0 ... Sun=6
+    overall_mean = 3260
+    dow_adj = DOW_ADJ[int(dow)] - overall_mean
+    base += dow_adj * 0.65   # softened multiplier so hourly still dominates
+
+    # ── 3. Month adjustment (additive, from Month chart) ──
+    MONTH_ADJ = {
+        1: 3050, 2: 3200, 3: 3280, 4: 3320, 5: 3370, 6: 3320,
+        7: 3220, 8: 3300, 9: 3340, 10: 3380, 11: 3130, 12: 3060,
+    }
+    month_adj = MONTH_ADJ.get(int(month), 3260) - overall_mean
+    base += month_adj * 0.55
+
+    # ── 4. Holiday (very strong suppressor) ──
+    if is_holiday:
+        base = base * 0.28 + 865 * 0.72   # blend toward holiday average
+
+    # ── 5. Weather Condition (strong categorical) ──
+    WEATHER_AVG = {
+        "Clouds": 3600, "Haze": 3530, "Rain": 3300, "Drizzle": 3270,
+        "Smoke": 3250, "Clear": 3100, "Snow": 2950, "Thunderstorm": 2860,
+        "Mist": 2890, "Fog": 2650, "Squall": 1580,
+    }
+    w_target = WEATHER_AVG.get(weather_type, overall_mean)
+    base = base * 0.45 + w_target * 0.55   # strong pull toward weather avg
+
+    # ── 6. Cloud Cover (non-linear, peak at 26-50%) ──
+    if clouds_pct <= 25:
+        cloud_target = 3000
+    elif clouds_pct <= 50:
+        cloud_target = 3650
+    elif clouds_pct <= 75:
+        cloud_target = 3500
+    else:
+        cloud_target = 3280
+    base = base * 0.6 + cloud_target * 0.4
+
+    # ── 7. Precipitation penalties (additive, modest) ──
+    rain_penalty = math.log1p(rain_mm) * 95
+    snow_penalty = math.log1p(snow_mm) * 240
+    base -= rain_penalty + snow_penalty
+
+    # ── 8. Temperature effect ──
+    if temp_c < 0:
+        base += (temp_c * 22)          # cold suppression
+    elif temp_c > 32:
+        base -= (temp_c - 32) * 35     # extreme heat
+
+    # Weekend override (if forced)
+    if is_weekend and not is_holiday:
+        base = base * 0.78
+
+    # Final bounds
+    vol = max(150, min(7280, int(round(base))))
     return vol
 
 
