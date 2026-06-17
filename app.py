@@ -40,14 +40,11 @@ st.markdown("""
 def hybrid_predict(hour, dow, month, temp_c, clouds_pct, rain_mm, snow_mm,
                    weather_type, is_holiday, is_weekend):
     """
-    Improved EDA-aligned approximation:
-    - Hourly pattern is the strongest driver
-    - DOW/Month as moderate additive adjustments
-    - Weather/Holiday as strong categorical pulls
-    - Smaller, realistic penalties for precip/temp
+    Strongly EDA-aligned version — hourly base dominates.
+    Much stronger suppression for night/weekend/holiday/snow.
     """
 
-    # 1. Hourly Base (dominant signal from your first chart)
+    # 1. Hourly Base (dominant)
     HOUR_AVG = {
         0: 800, 1: 480, 2: 300, 3: 260, 4: 370,
         5: 2050, 6: 4100, 7: 4650, 8: 4600, 9: 4350,
@@ -57,33 +54,31 @@ def hybrid_predict(hour, dow, month, temp_c, clouds_pct, rain_mm, snow_mm,
     }
     base = float(HOUR_AVG.get(int(hour), 3260))
 
-    # 2. Day-of-Week adjustment (additive, moderated)
-    DOW_AVG = [3300, 3500, 3560, 3590, 3600, 2790, 2380]  # Mon-Sun
-    dow_target = DOW_AVG[int(dow)]
-    base = base * 0.65 + dow_target * 0.35
+    # 2. DOW (light touch)
+    DOW_AVG = [3300, 3500, 3560, 3590, 3600, 2790, 2380]
+    base = base * 0.85 + DOW_AVG[int(dow)] * 0.15
 
-    # 3. Month adjustment (additive, moderated)
+    # 3. Month (very light)
     MONTH_AVG = {
         1: 3050, 2: 3200, 3: 3280, 4: 3320, 5: 3370, 6: 3320,
         7: 3220, 8: 3300, 9: 3340, 10: 3380, 11: 3130, 12: 3060
     }
-    month_target = MONTH_AVG.get(int(month), 3260)
-    base = base * 0.75 + month_target * 0.25
+    base = base * 0.9 + MONTH_AVG.get(int(month), 3260) * 0.1
 
-    # 4. Holiday - very strong effect
+    # 4. Holiday — very strong
     if is_holiday:
-        base = base * 0.25 + 865 * 0.75
+        base = base * 0.12 + 865 * 0.88
 
-    # 5. Weather Condition - strong categorical pull
+    # 5. Weather — strong categorical
     WEATHER_AVG = {
         "Clouds": 3600, "Haze": 3530, "Rain": 3300, "Drizzle": 3270,
         "Smoke": 3250, "Clear": 3100, "Snow": 2950, "Thunderstorm": 2860,
         "Mist": 2890, "Fog": 2650, "Squall": 1580,
     }
     w_target = WEATHER_AVG.get(weather_type, 3260)
-    base = base * 0.5 + w_target * 0.5
+    base = base * 0.38 + w_target * 0.62
 
-    # 6. Cloud Cover (non-linear, matches your chart peak at 26-50%)
+    # 6. Cloud cover
     if clouds_pct <= 25:
         cloud_target = 3000
     elif clouds_pct <= 50:
@@ -92,24 +87,28 @@ def hybrid_predict(hour, dow, month, temp_c, clouds_pct, rain_mm, snow_mm,
         cloud_target = 3500
     else:
         cloud_target = 3280
-    base = base * 0.65 + cloud_target * 0.35
+    base = base * 0.72 + cloud_target * 0.28
 
-    # 7. Precipitation - modest additive penalties
-    base -= math.log1p(rain_mm) * 110
-    base -= math.log1p(snow_mm) * 260
+    # 7. Precip penalties (stronger)
+    base -= math.log1p(rain_mm) * 145
+    base -= math.log1p(snow_mm) * 360
 
-    # 8. Temperature effect
+    # 8. Temperature
     if temp_c < 0:
-        base += temp_c * 20
+        base += temp_c * 32
     elif temp_c > 32:
-        base -= (temp_c - 32) * 28
+        base -= (temp_c - 32) * 42
 
-    # Weekend softening (if not already holiday)
+    # 9. Weekend + Night suppression (much stronger)
     if is_weekend and not is_holiday:
-        base *= 0.82
+        base *= 0.68
 
-    # Clamp to realistic range
-    vol = max(120, min(7280, int(round(base))))
+    if hour <= 4 or hour >= 23:      # deep night
+        base *= 0.48
+    elif hour <= 6 or hour >= 21:    # shoulder hours
+        base *= 0.78
+
+    vol = max(60, min(7280, int(round(base))))
     return vol
 
 
