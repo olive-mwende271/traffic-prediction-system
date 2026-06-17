@@ -37,18 +37,17 @@ st.markdown("""
 
 
 # ─── Hybrid Model Approximation ────────────────────────────────────────────────
-# ─── Hybrid Model Approximation (EDA-aligned) ─────────────────────────────────
 def hybrid_predict(hour, dow, month, temp_c, clouds_pct, rain_mm, snow_mm,
                    weather_type, is_holiday, is_weekend):
     """
-    Rebuilt to match EDA charts more faithfully:
-    - Strong hourly base from 'Avg Traffic by Hour'
-    - Additive DOW + Month effects (instead of aggressive multipliers)
-    - Strong categorical weather/holiday overrides
-    - Moderate precip/temp penalties
+    Improved EDA-aligned approximation:
+    - Hourly pattern is the strongest driver
+    - DOW/Month as moderate additive adjustments
+    - Weather/Holiday as strong categorical pulls
+    - Smaller, realistic penalties for precip/temp
     """
 
-    # ── 1. Hourly Base (most important signal) ──
+    # 1. Hourly Base (dominant signal from your first chart)
     HOUR_AVG = {
         0: 800, 1: 480, 2: 300, 3: 260, 4: 370,
         5: 2050, 6: 4100, 7: 4650, 8: 4600, 9: 4350,
@@ -58,34 +57,33 @@ def hybrid_predict(hour, dow, month, temp_c, clouds_pct, rain_mm, snow_mm,
     }
     base = float(HOUR_AVG.get(int(hour), 3260))
 
-    # ── 2. Day-of-Week adjustment (additive, from DOW chart) ──
-    DOW_ADJ = [3300, 3500, 3560, 3590, 3600, 2790, 2380]  # Mon=0 ... Sun=6
-    overall_mean = 3260
-    dow_adj = DOW_ADJ[int(dow)] - overall_mean
-    base += dow_adj * 0.65   # softened multiplier so hourly still dominates
+    # 2. Day-of-Week adjustment (additive, moderated)
+    DOW_AVG = [3300, 3500, 3560, 3590, 3600, 2790, 2380]  # Mon-Sun
+    dow_target = DOW_AVG[int(dow)]
+    base = base * 0.65 + dow_target * 0.35
 
-    # ── 3. Month adjustment (additive, from Month chart) ──
-    MONTH_ADJ = {
+    # 3. Month adjustment (additive, moderated)
+    MONTH_AVG = {
         1: 3050, 2: 3200, 3: 3280, 4: 3320, 5: 3370, 6: 3320,
-        7: 3220, 8: 3300, 9: 3340, 10: 3380, 11: 3130, 12: 3060,
+        7: 3220, 8: 3300, 9: 3340, 10: 3380, 11: 3130, 12: 3060
     }
-    month_adj = MONTH_ADJ.get(int(month), 3260) - overall_mean
-    base += month_adj * 0.55
+    month_target = MONTH_AVG.get(int(month), 3260)
+    base = base * 0.75 + month_target * 0.25
 
-    # ── 4. Holiday (very strong suppressor) ──
+    # 4. Holiday - very strong effect
     if is_holiday:
-        base = base * 0.28 + 865 * 0.72   # blend toward holiday average
+        base = base * 0.25 + 865 * 0.75
 
-    # ── 5. Weather Condition (strong categorical) ──
+    # 5. Weather Condition - strong categorical pull
     WEATHER_AVG = {
         "Clouds": 3600, "Haze": 3530, "Rain": 3300, "Drizzle": 3270,
         "Smoke": 3250, "Clear": 3100, "Snow": 2950, "Thunderstorm": 2860,
         "Mist": 2890, "Fog": 2650, "Squall": 1580,
     }
-    w_target = WEATHER_AVG.get(weather_type, overall_mean)
-    base = base * 0.45 + w_target * 0.55   # strong pull toward weather avg
+    w_target = WEATHER_AVG.get(weather_type, 3260)
+    base = base * 0.5 + w_target * 0.5
 
-    # ── 6. Cloud Cover (non-linear, peak at 26-50%) ──
+    # 6. Cloud Cover (non-linear, matches your chart peak at 26-50%)
     if clouds_pct <= 25:
         cloud_target = 3000
     elif clouds_pct <= 50:
@@ -94,25 +92,24 @@ def hybrid_predict(hour, dow, month, temp_c, clouds_pct, rain_mm, snow_mm,
         cloud_target = 3500
     else:
         cloud_target = 3280
-    base = base * 0.6 + cloud_target * 0.4
+    base = base * 0.65 + cloud_target * 0.35
 
-    # ── 7. Precipitation penalties (additive, modest) ──
-    rain_penalty = math.log1p(rain_mm) * 95
-    snow_penalty = math.log1p(snow_mm) * 240
-    base -= rain_penalty + snow_penalty
+    # 7. Precipitation - modest additive penalties
+    base -= math.log1p(rain_mm) * 110
+    base -= math.log1p(snow_mm) * 260
 
-    # ── 8. Temperature effect ──
+    # 8. Temperature effect
     if temp_c < 0:
-        base += (temp_c * 22)          # cold suppression
+        base += temp_c * 20
     elif temp_c > 32:
-        base -= (temp_c - 32) * 35     # extreme heat
+        base -= (temp_c - 32) * 28
 
-    # Weekend override (if forced)
+    # Weekend softening (if not already holiday)
     if is_weekend and not is_holiday:
-        base = base * 0.78
+        base *= 0.82
 
-    # Final bounds
-    vol = max(150, min(7280, int(round(base))))
+    # Clamp to realistic range
+    vol = max(120, min(7280, int(round(base))))
     return vol
 
 
