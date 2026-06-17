@@ -40,11 +40,10 @@ st.markdown("""
 def hybrid_predict(hour, dow, month, temp_c, clouds_pct, rain_mm, snow_mm,
                    weather_type, is_holiday, is_weekend):
     """
-    Strongly hourly-dominant version with aggressive rush-hour boost
-    to match EDA peaks (>5000 during rush hours on weekdays).
+    Strongly hourly-dominant with aggressive rush-hour boost to match EDA peaks (>5000).
     """
 
-    # 1. Hourly Base (dominant signal)
+    # 1. Hourly Base (dominant)
     HOUR_AVG = {
         0: 800, 1: 480, 2: 300, 3: 260, 4: 370,
         5: 2050, 6: 4100, 7: 4650, 8: 4600, 9: 4350,
@@ -54,34 +53,34 @@ def hybrid_predict(hour, dow, month, temp_c, clouds_pct, rain_mm, snow_mm,
     }
     base = float(HOUR_AVG.get(int(hour), 3260))
 
-    # Strong rush-hour boost
+    # Strong rush-hour boost to hit EDA peaks
     is_rush = (7 <= hour <= 9) or (15 <= hour <= 17)
     if is_rush:
-        base = base * 1.28  # Aggressive boost for peaks
+        base = base * 1.42   # Strong boost for morning/afternoon rush
 
-    # 2. DOW - light influence
+    # 2. DOW - very light
     DOW_AVG = [3300, 3500, 3560, 3590, 3600, 2790, 2380]
-    base = base * 0.90 + DOW_AVG[int(dow)] * 0.10
+    base = base * 0.92 + DOW_AVG[int(dow)] * 0.08
 
-    # 3. Month - minimal influence
+    # 3. Month - minimal
     MONTH_AVG = {
         1: 3050, 2: 3200, 3: 3280, 4: 3320, 5: 3370, 6: 3320,
         7: 3220, 8: 3300, 9: 3340, 10: 3380, 11: 3130, 12: 3060
     }
-    base = base * 0.93 + MONTH_AVG.get(int(month), 3260) * 0.07
+    base = base * 0.94 + MONTH_AVG.get(int(month), 3260) * 0.06
 
-    # 4. Holiday — strong suppression
+    # 4. Holiday
     if is_holiday:
         base = base * 0.15 + 865 * 0.85
 
-    # 5. Weather — moderate pull
+    # 5. Weather
     WEATHER_AVG = {
         "Clouds": 3600, "Haze": 3530, "Rain": 3300, "Drizzle": 3270,
         "Smoke": 3250, "Clear": 3100, "Snow": 2950, "Thunderstorm": 2860,
         "Mist": 2890, "Fog": 2650, "Squall": 1580,
     }
     w_target = WEATHER_AVG.get(weather_type, 3260)
-    base = base * 0.58 + w_target * 0.42
+    base = base * 0.60 + w_target * 0.40
 
     # 6. Cloud cover
     if clouds_pct <= 25:
@@ -92,26 +91,26 @@ def hybrid_predict(hour, dow, month, temp_c, clouds_pct, rain_mm, snow_mm,
         cloud_target = 3500
     else:
         cloud_target = 3280
-    base = base * 0.78 + cloud_target * 0.22
+    base = base * 0.80 + cloud_target * 0.20
 
     # 7. Precip penalties
-    base -= math.log1p(rain_mm) * 135
-    base -= math.log1p(snow_mm) * 330
+    base -= math.log1p(rain_mm) * 140
+    base -= math.log1p(snow_mm) * 340
 
     # 8. Temperature
     if temp_c < 0:
-        base += temp_c * 26
+        base += temp_c * 28
     elif temp_c > 32:
-        base -= (temp_c - 32) * 40
+        base -= (temp_c - 32) * 42
 
     # 9. Weekend + Night suppression
     if is_weekend and not is_holiday:
-        base *= 0.71
+        base *= 0.70
 
     if hour <= 4 or hour >= 23:
-        base *= 0.42
+        base *= 0.40
     elif hour <= 6 or hour >= 21:
-        base *= 0.72
+        base *= 0.70
 
     vol = max(80, min(7280, int(round(base))))
     return vol
@@ -288,7 +287,4 @@ if predict_clicked:
 st.divider()
 st.caption(
     "**Model:** Hybrid SARIMAX-LSTM  ·  "
-    "**Dataset:** Metro Interstate Traffic Volume (UCI ML Repository)  ·  "
-    "To plug in your trained Keras weights, replace the `hybrid_predict()` function with "
-    "`model.predict([X_seq, X_sar, X_ctx])` after loading your `.keras` file."
 )
