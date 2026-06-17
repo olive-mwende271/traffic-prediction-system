@@ -40,7 +40,7 @@ st.markdown("""
 def hybrid_predict(hour, dow, month, temp_c, clouds_pct, rain_mm, snow_mm,
                    weather_type, is_holiday, is_weekend):
     """
-    Final EDA-aligned version — strong rush hour peaks while keeping low periods realistic.
+    Final strong rush-hour version — tuned to match EDA peaks (~5500+).
     """
 
     # 1. Hourly Base (dominant)
@@ -56,18 +56,18 @@ def hybrid_predict(hour, dow, month, temp_c, clouds_pct, rain_mm, snow_mm,
     # Strong rush-hour boost
     is_rush = (7 <= hour <= 9) or (15 <= hour <= 17)
     if is_rush:
-        base = base * 1.38
+        base = base * 1.45   # Increased boost for peaks
 
-    # 2. DOW - light
+    # 2. DOW - very light
     DOW_AVG = [3300, 3500, 3560, 3590, 3600, 2790, 2380]
-    base = base * 0.91 + DOW_AVG[int(dow)] * 0.09
+    base = base * 0.92 + DOW_AVG[int(dow)] * 0.08
 
     # 3. Month - minimal
     MONTH_AVG = {
         1: 3050, 2: 3200, 3: 3280, 4: 3320, 5: 3370, 6: 3320,
         7: 3220, 8: 3300, 9: 3340, 10: 3380, 11: 3130, 12: 3060
     }
-    base = base * 0.94 + MONTH_AVG.get(int(month), 3260) * 0.06
+    base = base * 0.95 + MONTH_AVG.get(int(month), 3260) * 0.05
 
     # 4. Holiday
     if is_holiday:
@@ -80,7 +80,7 @@ def hybrid_predict(hour, dow, month, temp_c, clouds_pct, rain_mm, snow_mm,
         "Mist": 2890, "Fog": 2650, "Squall": 1580,
     }
     w_target = WEATHER_AVG.get(weather_type, 3260)
-    base = base * 0.60 + w_target * 0.40
+    base = base * 0.62 + w_target * 0.38
 
     # 6. Cloud cover
     if clouds_pct <= 25:
@@ -91,7 +91,7 @@ def hybrid_predict(hour, dow, month, temp_c, clouds_pct, rain_mm, snow_mm,
         cloud_target = 3500
     else:
         cloud_target = 3280
-    base = base * 0.80 + cloud_target * 0.20
+    base = base * 0.82 + cloud_target * 0.18
 
     # 7. Precip
     base -= math.log1p(rain_mm) * 140
@@ -103,7 +103,7 @@ def hybrid_predict(hour, dow, month, temp_c, clouds_pct, rain_mm, snow_mm,
     elif temp_c > 32:
         base -= (temp_c - 32) * 42
 
-    # 9. Weekend + Night
+    # 9. Weekend + Night suppression
     if is_weekend and not is_holiday:
         base *= 0.70
 
