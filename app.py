@@ -115,7 +115,6 @@ def hybrid_predict(hour, dow, month, temp_c, clouds_pct, rain_mm, snow_mm,
     vol = max(80, min(7280, int(round(base))))
     return vol
 
-
 def classify(vol):
     if vol >= 5000:
         return "heavy",    "🔴 Heavy traffic",   "Significant delays expected",    "#D85A30"
