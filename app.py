@@ -40,7 +40,7 @@ st.markdown("""
 def hybrid_predict(hour, dow, month, temp_c, clouds_pct, rain_mm, snow_mm,
                    weather_type, is_holiday, is_weekend):
     """
-    Final strong rush-hour version — tuned to match EDA peaks (~5500+).
+    Final tuned version — strong rush-hour peaks matching EDA charts.
     """
 
     # 1. Hourly Base (dominant)
@@ -56,9 +56,9 @@ def hybrid_predict(hour, dow, month, temp_c, clouds_pct, rain_mm, snow_mm,
     # Strong rush-hour boost
     is_rush = (7 <= hour <= 9) or (15 <= hour <= 17)
     if is_rush:
-        base = base * 1.45   # Increased boost for peaks
+        base = base * 1.48   # Final tuned boost
 
-    # 2. DOW - very light
+    # 2. DOW - light
     DOW_AVG = [3300, 3500, 3560, 3590, 3600, 2790, 2380]
     base = base * 0.92 + DOW_AVG[int(dow)] * 0.08
 
