@@ -40,7 +40,7 @@ st.markdown("""
 def hybrid_predict(hour, dow, month, temp_c, clouds_pct, rain_mm, snow_mm,
                    weather_type, is_holiday, is_weekend):
     """
-    Strongly hourly-dominant with aggressive rush-hour boost to match EDA peaks (>5000).
+    Final EDA-aligned version — strong rush hour peaks while keeping low periods realistic.
     """
 
     # 1. Hourly Base (dominant)
@@ -53,14 +53,14 @@ def hybrid_predict(hour, dow, month, temp_c, clouds_pct, rain_mm, snow_mm,
     }
     base = float(HOUR_AVG.get(int(hour), 3260))
 
-    # Strong rush-hour boost to hit EDA peaks
+    # Strong rush-hour boost
     is_rush = (7 <= hour <= 9) or (15 <= hour <= 17)
     if is_rush:
-        base = base * 1.42   # Strong boost for morning/afternoon rush
+        base = base * 1.38
 
-    # 2. DOW - very light
+    # 2. DOW - light
     DOW_AVG = [3300, 3500, 3560, 3590, 3600, 2790, 2380]
-    base = base * 0.92 + DOW_AVG[int(dow)] * 0.08
+    base = base * 0.91 + DOW_AVG[int(dow)] * 0.09
 
     # 3. Month - minimal
     MONTH_AVG = {
@@ -93,7 +93,7 @@ def hybrid_predict(hour, dow, month, temp_c, clouds_pct, rain_mm, snow_mm,
         cloud_target = 3280
     base = base * 0.80 + cloud_target * 0.20
 
-    # 7. Precip penalties
+    # 7. Precip
     base -= math.log1p(rain_mm) * 140
     base -= math.log1p(snow_mm) * 340
 
@@ -103,7 +103,7 @@ def hybrid_predict(hour, dow, month, temp_c, clouds_pct, rain_mm, snow_mm,
     elif temp_c > 32:
         base -= (temp_c - 32) * 42
 
-    # 9. Weekend + Night suppression
+    # 9. Weekend + Night
     if is_weekend and not is_holiday:
         base *= 0.70
 
